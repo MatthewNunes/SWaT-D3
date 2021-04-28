@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <title></title>
+    <script type="text/javascript" src="d3.js">
+
+    </script>
+    <style>
+      .bubbles {
+        stroke-width: 2px;
+        stroke: white;
+      }
+      .bubbles:hover {
+        stroke: black;
+      }
+    </style>
+
+  </head>
+  <body>
+    <script>
+      var ipaddress_map;
+      var margin = {top: 10, right: 20, bottom: 30, left: 50},
+          width = 1000 - margin.left - margin.right,
+          height = 680 - margin.top - margin.bottom;
+
+      d3.json("ipdict.json")
+        .then(function(data){
+          ipaddress_map = data;
+          return;
+        });
+
+      d3.csv("BytesPortAddrMal.csv")
+        .then(function(data) {
+          data.forEach(d => {
+            d.Dport = parseInt(d.Dport);
+            d.DstAddr = parseInt(d.DstAddr);
+            d.CumBytes = parseFloat(d.CumBytes);
+            d.Percent = parseFloat(d.Percent);
+          })
+
+          var portRange = d3.extent(data, d => d.Dport);
+          var addrRange = d3.extent(data, d => d.DstAddr);
+          var totbytesRange = d3.extent(data, d => d.CumBytes);
+          var percentRange = d3.extent(data, d => d.Percent);
+
+          console.log(percentRange);
+
+          var svg = d3.select("body")
+                      .append("svg")
+                      .attr("width", width + margin.left + margin.right)
+                      .attr("height", height + margin.top + margin.bottom)
+                      .append("g")
+                        .attr("transform","translate(" + margin.left + "," + margin.top + ")");
+
+
+
+          var x = d3.scaleLinear()
+                    .domain(addrRange)
+                    .range([ 0, width ]);
+
+          svg.append("g")
+             .attr("transform", "translate(0," + height + ")")
+             .call(d3.axisBottom(x));
+
+              // Add Y axis
+          var y = d3.scaleLinear()
+                    .domain(portRange)
+                    .range([ height, 0]);
+
+          svg.append("g")
+             .call(d3.axisLeft(y));
+
+              // Add a scale for bubble size
+          var z = d3.scaleLinear()
+                    .domain(totbytesRange)
+                    .range([ 2, 40]);
+
+          var color = d3.scaleLinear()
+                        .domain(percentRange)
+                        .range(['blue', 'red']);
+
+          var tooltip = d3.select("body")
+                          .append("div")
+                          .style("opacity", 0)
+                          .attr("class", "tooltip")
+                          .style("background-color", "black")
+                          .style("border-radius", "5px")
+                          .style("padding", "10px")
+                          .style("color", "white")
+                          .style("position", "absolute");
+
+          var showTooltip = function(event, d) {
+            //console.log(event.pageX);
+            tooltip
+              .transition()
+              .duration(200)
+            tooltip
+              .style("opacity", 1)
+              .html("Port: " + String(d.Dport) +"<br />" +
+                    "Dst IP: " + String(ipaddress_map[d.DstAddr])
+            )
+              .style("left", (event.pageX +15) + "px")
+              .style("top", (event.pageY+15) + "px")
+          }
+          var moveTooltip = function(event, d) {
+            tooltip
+              .style("left", (event.pageX +15) + "px")
+              .style("top", (event.pageY+15) + "px")
+          }
+          var hideTooltip = function(event, d) {
+            tooltip
+              .transition()
+              .duration(200)
+              .style("opacity", 0)
+          }
+
+          svg.append('g')
+             .selectAll("dot")
+             .data(data)
+             .enter()
+             .append("circle")
+                .attr("class", "bubbles")
+                .attr("cx", function (d) { return x(d.DstAddr); } )
+                .attr("cy", function (d) { return y(d.Dport); } )
+                .attr("r", function (d) { return z(d.CumBytes); } )
+                .style("fill", function (d) { return color(d.Percent)})
+                .style("opacity", "0.7")
+             .on("mouseover", showTooltip)
+             .on("mousemove", moveTooltip)
+             .on("mouseleave", hideTooltip)
+        })
+
+    </script>
+  </body>
+</html>
